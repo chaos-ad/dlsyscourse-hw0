@@ -88,6 +88,8 @@ def test_softmax_regression_epoch():
     Theta = np.zeros((5,3), dtype=np.float32)
     dTheta = -nd.Gradient(lambda Th : softmax_loss(X@Th.reshape(5,3),y))(Theta)
     softmax_regression_epoch(X,y,Theta,lr=1.0,batch=50)
+    print(f"Expected: {dTheta.reshape(5,3)}")
+    print(f"Received: {Theta}")
     np.testing.assert_allclose(dTheta.reshape(5,3), Theta, rtol=1e-4, atol=1e-4)
 
 
@@ -96,7 +98,7 @@ def test_softmax_regression_epoch():
                       "data/train-labels-idx1-ubyte.gz")
     theta = np.zeros((X.shape[1], y.max()+1), dtype=np.float32)
     softmax_regression_epoch(X[:100], y[:100], theta, lr=0.1, batch=10)
-    np.testing.assert_allclose(np.linalg.norm(theta), 1.0947356, 
+    np.testing.assert_allclose(np.linalg.norm(theta), 1.0947356,
                                rtol=1e-5, atol=1e-5)
 
 
@@ -124,9 +126,9 @@ def test_nn_epoch():
     y = np.random.randint(3, size=(50,)).astype(np.uint8)
     W1 = np.random.randn(5, 10).astype(np.float32) / np.sqrt(10)
     W2 = np.random.randn(10, 3).astype(np.float32) / np.sqrt(3)
-    dW1 = nd.Gradient(lambda W1_ : 
+    dW1 = nd.Gradient(lambda W1_ :
         softmax_loss(np.maximum(X@W1_.reshape(5,10),0)@W2, y))(W1)
-    dW2 = nd.Gradient(lambda W2_ : 
+    dW2 = nd.Gradient(lambda W2_ :
         softmax_loss(np.maximum(X@W1,0)@W2_.reshape(10,3), y))(W2)
     W1_0, W2_0 = W1.copy(), W2.copy()
     nn_epoch(X, y, W1, W2, lr=1.0, batch=50)
@@ -140,9 +142,9 @@ def test_nn_epoch():
     W1 = np.random.randn(X.shape[1], 100).astype(np.float32) / np.sqrt(100)
     W2 = np.random.randn(100, 10).astype(np.float32) / np.sqrt(10)
     nn_epoch(X, y, W1, W2, lr=0.2, batch=100)
-    np.testing.assert_allclose(np.linalg.norm(W1), 28.437788, 
+    np.testing.assert_allclose(np.linalg.norm(W1), 28.437788,
                                rtol=1e-5, atol=1e-5)
-    np.testing.assert_allclose(np.linalg.norm(W2), 10.455095, 
+    np.testing.assert_allclose(np.linalg.norm(W2), 10.455095,
                                rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(loss_err(np.maximum(X@W1,0)@W2, y),
                                (0.19770025, 0.06006667), rtol=1e-4, atol=1e-4)
@@ -179,6 +181,8 @@ def test_softmax_regression_epoch_cpp():
     Theta = np.zeros((5,3), dtype=np.float32)
     dTheta = -nd.Gradient(lambda Th : softmax_loss(X@Th.reshape(5,3),y))(Theta)
     softmax_regression_epoch_cpp(X,y,Theta,lr=1.0,batch=50)
+    print(f"Expected: {dTheta.reshape(5,3)}")
+    print(f"Received: {Theta}")
     np.testing.assert_allclose(dTheta.reshape(5,3), Theta, rtol=1e-4, atol=1e-4)
 
 
@@ -187,7 +191,7 @@ def test_softmax_regression_epoch_cpp():
                       "data/train-labels-idx1-ubyte.gz")
     theta = np.zeros((X.shape[1], y.max()+1), dtype=np.float32)
     softmax_regression_epoch_cpp(X[:100], y[:100], theta, lr=0.1, batch=10)
-    np.testing.assert_allclose(np.linalg.norm(theta), 1.0947356, 
+    np.testing.assert_allclose(np.linalg.norm(theta), 1.0947356,
                                rtol=1e-5, atol=1e-5)
 
 

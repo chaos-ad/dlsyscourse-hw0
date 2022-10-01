@@ -20,9 +20,41 @@ def add(x, y):
         Sum of x + y
     """
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
+def unpack_part(fmt, data):
+    size = struct.calcsize(fmt)
+    return struct.unpack(fmt, data[:size]), data[size:]
+
+def read_idx_file(filename):
+    with gzip.open(filename, mode='rb') as fileobj:
+        data = fileobj.read()
+
+        (zero1, zero2, type_id, dims), data = unpack_part('>bbbb', data)
+        if zero1 != 0 or zero2 != 0:
+            raise Exception("Invalid file format")
+
+        types = {
+            int('0x08', base=16): 'B',
+            int('0x09', base=16): 'b',
+            int('0x0B', base=16): 'h',
+            int('0x0C', base=16): 'i',
+            int('0x0D', base=16): 'f',
+            int('0x0E', base=16): 'd'
+        }
+        type_code = types[type_id]
+
+        dim_sizes, data = unpack_part('>' + ('i' * dims), data)
+        num_examples = dim_sizes[0]
+        input_dim = int(np.prod(dim_sizes[1:]))
+
+        X, data = unpack_part('>' + (type_code * (num_examples * input_dim)), data)
+        if data:
+            raise Exception("invalid file format")
+
+        new_shape = (num_examples, input_dim) if input_dim > 1 else num_examples
+        return np.array(X).reshape(new_shape, order='C')
 
 def parse_mnist(image_filename, label_filename):
     """ Read an images and labels file in MNIST format.  See this page:
@@ -34,12 +66,12 @@ def parse_mnist(image_filename, label_filename):
 
     Returns:
         Tuple (X,y):
-            X (numpy.ndarray[np.float32]): 2D numpy array containing the loaded 
-                data.  The dimensionality of the data should be 
-                (num_examples x input_dim) where 'input_dim' is the full 
-                dimension of the data, e.g., since MNIST images are 28x28, it 
-                will be 784.  Values should be of type np.float32, and the data 
-                should be normalized to have a minimum value of 0.0 and a 
+            X (numpy.ndarray[np.float32]): 2D numpy array containing the loaded
+                data.  The dimensionality of the data should be
+                (num_examples x input_dim) where 'input_dim' is the full
+                dimension of the data, e.g., since MNIST images are 28x28, it
+                will be 784.  Values should be of type np.float32, and the data
+                should be normalized to have a minimum value of 0.0 and a
                 maximum value of 1.0. The normalization should be applied uniformly
                 across the whole dataset, _not_ individual images.
 
@@ -48,9 +80,15 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    images = read_idx_file(image_filename).astype('float32')
+    images = (images - images.min()) / (images.max() - images.min())
+    labels = read_idx_file(label_filename).astype('uint8')
+    return images, labels
     ### END YOUR CODE
 
+def one_hot(indexes, dims=None):
+    dims = dims or indexes.max()+1
+    return np.eye(dims)[indexes]
 
 def softmax_loss(Z, y):
     """ Return softmax loss.  Note that for the purposes of this assignment,
@@ -68,9 +106,14 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    # z2 = np.log(np.exp(Z).sum(axis=1))
+    # y2 = (Z * one_hot(y)).sum(axis=1)
+    # return (z2 - y2).mean()
+    return (np.log(np.exp(Z).sum(axis=1)) - Z[np.arange(Z.shape[0]), y]).mean()
     ### END YOUR CODE
 
+def normalize_rows(values):
+  return values / values.sum(axis=1)[:, np.newaxis]
 
 def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
     """ Run a single epoch of SGD for softmax regression on the data, using
@@ -91,7 +134,35 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    # X.shape = (num_examples, input_dim)
+    # theta.shape = (input_dim, num_classes)
+    # print(f"=== START ===")
+    num_classes = y.max() + 1
+    for i in range(0, X.shape[0], batch):
+        # print(f"processing minibatch [{i}, {i+batch})...")
+        minibatch_X = X[i:i+batch]
+        minibatch_y = y[i:i+batch]
+        # print(f"minibatch_X.shape = {minibatch_X.shape}\n\t{minibatch_X}")
+        # print(f"minibatch_y.shape = {minibatch_y.shape}\n\t{minibatch_y}")
+        # print(f"theta.shape = {theta.shape}\n\t{theta}")
+        logodds = np.matmul(minibatch_X, theta) # shape = (num_examples x num_classes)
+        # print(f"logodds.shape = {logodds.shape}\n\t{logodds}")
+        Z_exp = np.exp(logodds)
+        # print(f"Z_exp.shape = {Z_exp.shape}\n\t{Z_exp}")
+        Z_norm = normalize_rows(Z_exp) # shape = (num_examples x num_classes)
+        # print(f"Z_norm.shape = {Z_norm.shape}\n\t{Z_norm}")
+        Y_onehot = one_hot(minibatch_y, dims=num_classes)
+        # print(f"Y_onehot.shape = {Y_onehot.shape}\n\t{Y_onehot}")
+        Z_sub = (Z_norm - Y_onehot)  # shape = (num_examples x num_classes)
+        # print(f"Z_sub.shape = {Z_sub.shape}\n\t{Z_sub}")
+        minibatch_X_T = minibatch_X.T
+        # print(f"minibatch_X_T.shape = {minibatch_X_T.shape}\n\t{minibatch_X_T}")
+        theta_grad = np.matmul(minibatch_X_T, Z_sub) # (input_dim x num_classes)
+        # print(f"theta_grad.shape = {theta_grad.shape}\n\t{theta_grad}")
+        theta -= (lr / batch) * theta_grad
+        # print(f"theta.shape = {theta.shape}\n\t{theta}")
+
+    # print(f"=== FINISH === final teta.shape = {theta.shape}\n\t{theta}")
     ### END YOUR CODE
 
 
@@ -118,7 +189,18 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    num_classes = y.max() + 1
+    for i in range(0, X.shape[0], batch):
+        # print(f"processing minibatch [{i}, {i+batch})...")
+        minibatch_X = X[i:i+batch]
+        minibatch_y = y[i:i+batch]
+        Z1 = np.maximum(0, np.matmul(minibatch_X,W1))
+        G2 = normalize_rows(np.exp(np.matmul(Z1,W2))) - one_hot(minibatch_y, dims=num_classes)
+        G1 = np.matmul(G2,W2.T) * (Z1 > 0).astype('int')
+        W1_grad = np.matmul(minibatch_X.T, G1)
+        W2_grad = np.matmul(Z1.T, G2)
+        W1 -= (lr / batch) * W1_grad
+        W2 -= (lr / batch) * W2_grad
     ### END YOUR CODE
 
 
